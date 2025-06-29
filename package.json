@@ -1,0 +1,18 @@
+{
+  "name": "acute-edge-voronoi",
+  "version": "1.0.0",
+  "description": "Dynamic Voronoi mesh with acute angle edge evolution",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.158.0",
+    "d3-delaunay": "^6.0.4"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+} 

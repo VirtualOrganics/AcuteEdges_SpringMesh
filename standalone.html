@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acute Edge Voronoi Mesh Evolution - Standalone</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #222;
+            font-family: Arial, sans-serif;
+        }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 100;
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+            margin-right: 10px;
+        }
+        
+        input[type="number"] {
+            width: 60px;
+            padding: 2px 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 3px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button.pause {
+            background: #f44336;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 100;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 100;
+            max-width: 300px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div id="controls">
+            <div class="control-group">
+                <label>Cell Count:</label>
+                <input type="range" id="cellCount" min="10" max="200" value="50">
+                <input type="number" id="cellCountValue" min="10" max="200" value="50">
+            </div>
+            
+            <div class="control-group">
+                <label>Expand/Shrink Rate (%):</label>
+                <input type="range" id="changeRate" min="1" max="20" value="5">
+                <input type="number" id="changeRateValue" min="1" max="20" value="5">
+            </div>
+            
+            <div class="control-group">
+                <label>Evolution Speed (ms):</label>
+                <input type="range" id="evolutionSpeed" min="100" max="2000" value="500">
+                <input type="number" id="evolutionSpeedValue" min="100" max="2000" value="500">
+            </div>
+            
+            <div class="control-group">
+                <button id="regenerate">Regenerate Mesh</button>
+                <button id="startEvolution">Start Evolution</button>
+                <button id="pauseEvolution" class="pause">Pause</button>
+            </div>
+        </div>
+        
+        <div id="info">
+            <div>Generation: <span id="generation">0</span></div>
+            <div>Acute Edges: <span id="acuteEdges">0</span></div>
+            <div>Expanding Edges: <span id="expandingEdges">0</span></div>
+            <div>Shrinking Edges: <span id="shrinkingEdges">0</span></div>
+        </div>
+        
+        <div id="instructions">
+            <h3>How to Use:</h3>
+            <p>1. Click "Regenerate Mesh" to create a new random Voronoi diagram</p>
+            <p>2. Adjust settings as desired</p>
+            <p>3. Click "Start Evolution" to begin the acute angle evolution</p>
+            <p>4. Watch as edges expand/contract based on their acute angle connections</p>
+            <p><strong>Note:</strong> This demo uses a simplified version due to browser limitations. For the full version with D3-Delaunay, please use the Node.js setup.</p>
+        </div>
+    </div>
+    
+    <!-- Import Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>
+    
+    <script>
+        /**
+         * Simplified Voronoi Evolution System for Standalone Demo
+         * This demonstrates the core concepts without external dependencies
+         */
+        
+        class SimpleVoronoiEvolution {
+            constructor() {
+                this.config = {
+                    cellCount: 50,
+                    changeRate: 5,
+                    evolutionSpeed: 500,
+                    canvasWidth: window.innerWidth,
+                    canvasHeight: window.innerHeight
+                };
+                
+                this.generation = 0;
+                this.isEvolutionRunning = false;
+                this.evolutionTimer = null;
+                
+                // Three.js components
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                
+                // Simplified mesh data
+                this.points = [];
+                this.edges = [];
+                this.meshGroup = null;
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupThreeJS();
+                this.setupControls();
+                this.setupEventListeners();
+                this.generateSimpleMesh();
+                this.animate();
+                
+                console.log('🎯 Simple Voronoi Evolution initialized');
+            }
+            
+            setupThreeJS() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x111111);
+                
+                const aspect = this.config.canvasWidth / this.config.canvasHeight;
+                const frustumSize = 20;
+                this.camera = new THREE.OrthographicCamera(
+                    -frustumSize * aspect / 2, frustumSize * aspect / 2,
+                    frustumSize / 2, -frustumSize / 2,
+                    0.1, 1000
+                );
+                this.camera.position.z = 10;
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(this.config.canvasWidth, this.config.canvasHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                
+                document.getElementById('canvas-container').appendChild(this.renderer.domElement);
+            }
+            
+            setupControls() {
+                const cellCountSlider = document.getElementById('cellCount');
+                const cellCountInput = document.getElementById('cellCountValue');
+                
+                cellCountSlider.addEventListener('input', (e) => {
+                    this.config.cellCount = parseInt(e.target.value);
+                    cellCountInput.value = e.target.value;
+                });
+                
+                cellCountInput.addEventListener('input', (e) => {
+                    this.config.cellCount = parseInt(e.target.value);
+                    cellCountSlider.value = e.target.value;
+                });
+                
+                const changeRateSlider = document.getElementById('changeRate');
+                const changeRateInput = document.getElementById('changeRateValue');
+                
+                changeRateSlider.addEventListener('input', (e) => {
+                    this.config.changeRate = parseInt(e.target.value);
+                    changeRateInput.value = e.target.value;
+                });
+                
+                changeRateInput.addEventListener('input', (e) => {
+                    this.config.changeRate = parseInt(e.target.value);
+                    changeRateSlider.value = e.target.value;
+                });
+                
+                const evolutionSpeedSlider = document.getElementById('evolutionSpeed');
+                const evolutionSpeedInput = document.getElementById('evolutionSpeedValue');
+                
+                evolutionSpeedSlider.addEventListener('input', (e) => {
+                    this.config.evolutionSpeed = parseInt(e.target.value);
+                    evolutionSpeedInput.value = e.target.value;
+                });
+                
+                evolutionSpeedInput.addEventListener('input', (e) => {
+                    this.config.evolutionSpeed = parseInt(e.target.value);
+                    evolutionSpeedSlider.value = e.target.value;
+                });
+            }
+            
+            setupEventListeners() {
+                document.getElementById('regenerate').addEventListener('click', () => {
+                    this.regenerateMesh();
+                });
+                
+                document.getElementById('startEvolution').addEventListener('click', () => {
+                    this.startEvolution();
+                });
+                
+                document.getElementById('pauseEvolution').addEventListener('click', () => {
+                    this.pauseEvolution();
+                });
+                
+                window.addEventListener('resize', () => {
+                    this.onWindowResize();
+                });
+            }
+            
+            generateSimpleMesh() {
+                // Generate random points for a simplified grid-based Voronoi-like structure
+                this.points = [];
+                this.edges = [];
+                
+                // Create a simplified rectangular grid with some randomization
+                const gridSize = Math.ceil(Math.sqrt(this.config.cellCount));
+                const cellWidth = 16 / gridSize;
+                const cellHeight = 12 / gridSize;
+                
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize && this.points.length < this.config.cellCount; j++) {
+                        const baseX = -8 + (i + 0.5) * cellWidth;
+                        const baseY = -6 + (j + 0.5) * cellHeight;
+                        
+                        // Add some randomness
+                        const x = baseX + (Math.random() - 0.5) * cellWidth * 0.8;
+                        const y = baseY + (Math.random() - 0.5) * cellHeight * 0.8;
+                        
+                        this.points.push({ x, y, id: this.points.length });
+                    }
+                }
+                
+                // Create edges between nearby points
+                this.createEdges();
+                this.createVisualMesh();
+            }
+            
+            createEdges() {
+                this.edges = [];
+                const maxDistance = 3; // Maximum distance for edge connections
+                
+                for (let i = 0; i < this.points.length; i++) {
+                    for (let j = i + 1; j < this.points.length; j++) {
+                        const p1 = this.points[i];
+                        const p2 = this.points[j];
+                        
+                        const distance = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+                        
+                        if (distance <= maxDistance) {
+                            this.edges.push({
+                                id: this.edges.length,
+                                start: p1,
+                                end: p2,
+                                length: distance,
+                                acuteAngleCount: 0,
+                                expandValue: 0,
+                                connectedEdges: []
+                            });
+                        }
+                    }
+                }
+                
+                // Find connected edges for each edge
+                this.findConnectedEdges();
+            }
+            
+            findConnectedEdges() {
+                for (let i = 0; i < this.edges.length; i++) {
+                    const edge1 = this.edges[i];
+                    edge1.connectedEdges = [];
+                    
+                    for (let j = 0; j < this.edges.length; j++) {
+                        if (i === j) continue;
+                        
+                        const edge2 = this.edges[j];
+                        
+                        // Check if edges share a point
+                        if (edge1.start.id === edge2.start.id || 
+                            edge1.start.id === edge2.end.id ||
+                            edge1.end.id === edge2.start.id || 
+                            edge1.end.id === edge2.end.id) {
+                            edge1.connectedEdges.push(j);
+                        }
+                    }
+                }
+            }
+            
+            createVisualMesh() {
+                if (this.meshGroup) {
+                    this.scene.remove(this.meshGroup);
+                }
+                
+                this.meshGroup = new THREE.Group();
+                
+                // Create white circles for points
+                for (const point of this.points) {
+                    const geometry = new THREE.CircleGeometry(0.1, 8);
+                    const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    const circle = new THREE.Mesh(geometry, material);
+                    circle.position.set(point.x, point.y, 0);
+                    this.meshGroup.add(circle);
+                }
+                
+                // Create black lines for edges
+                for (const edge of this.edges) {
+                    const geometry = new THREE.BufferGeometry();
+                    const vertices = new Float32Array([
+                        edge.start.x, edge.start.y, 0.01,
+                        edge.end.x, edge.end.y, 0.01
+                    ]);
+                    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                    
+                    const material = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+                    const line = new THREE.Line(geometry, material);
+                    this.meshGroup.add(line);
+                }
+                
+                this.scene.add(this.meshGroup);
+            }
+            
+            regenerateMesh() {
+                this.generation = 0;
+                this.updateInfoDisplay();
+                this.generateSimpleMesh();
+                console.log(`🔄 Generated new mesh with ${this.config.cellCount} cells`);
+            }
+            
+            startEvolution() {
+                if (this.isEvolutionRunning) return;
+                
+                this.isEvolutionRunning = true;
+                console.log('🚀 Starting evolution process...');
+                
+                this.evolutionTimer = setInterval(() => {
+                    this.evolveOneGeneration();
+                }, this.config.evolutionSpeed);
+            }
+            
+            pauseEvolution() {
+                if (!this.isEvolutionRunning) return;
+                
+                this.isEvolutionRunning = false;
+                if (this.evolutionTimer) {
+                    clearInterval(this.evolutionTimer);
+                    this.evolutionTimer = null;
+                }
+                
+                console.log('⏸️ Evolution paused');
+            }
+            
+            evolveOneGeneration() {
+                this.generation++;
+                
+                // Analyze acute angles
+                const analysisResults = this.analyzeAcuteAngles();
+                
+                // Apply evolution
+                this.applyEvolution();
+                
+                // Update visualization
+                this.updateVisualMesh();
+                
+                // Update info display
+                this.updateInfoDisplay(analysisResults);
+                
+                console.log(`🧬 Generation ${this.generation}: ${analysisResults.acuteEdgeCount} acute edges`);
+            }
+            
+            analyzeAcuteAngles() {
+                let acuteEdgeCount = 0;
+                let expandingEdgeCount = 0;
+                let shrinkingEdgeCount = 0;
+                
+                for (const edge of this.edges) {
+                    let acuteConnectionCount = 0;
+                    
+                    // Check connections with all connected edges
+                    for (const connectedEdgeIndex of edge.connectedEdges) {
+                        const connectedEdge = this.edges[connectedEdgeIndex];
+                        const angle = this.calculateAngleBetweenEdges(edge, connectedEdge);
+                        
+                        if (angle < 90) {
+                            acuteConnectionCount++;
+                        }
+                    }
+                    
+                    edge.acuteAngleCount = acuteConnectionCount;
+                    
+                    if (acuteConnectionCount > 0) {
+                        acuteEdgeCount++;
+                        expandingEdgeCount++;
+                    } else {
+                        shrinkingEdgeCount++;
+                    }
+                }
+                
+                return {
+                    totalEdges: this.edges.length,
+                    acuteEdgeCount,
+                    expandingEdgeCount,
+                    shrinkingEdgeCount
+                };
+            }
+            
+            calculateAngleBetweenEdges(edge1, edge2) {
+                // Find shared point
+                let sharedPoint = null;
+                let edge1Dir = null;
+                let edge2Dir = null;
+                
+                if (edge1.start.id === edge2.start.id) {
+                    sharedPoint = edge1.start;
+                    edge1Dir = { x: edge1.end.x - edge1.start.x, y: edge1.end.y - edge1.start.y };
+                    edge2Dir = { x: edge2.end.x - edge2.start.x, y: edge2.end.y - edge2.start.y };
+                } else if (edge1.start.id === edge2.end.id) {
+                    sharedPoint = edge1.start;
+                    edge1Dir = { x: edge1.end.x - edge1.start.x, y: edge1.end.y - edge1.start.y };
+                    edge2Dir = { x: edge2.start.x - edge2.end.x, y: edge2.start.y - edge2.end.y };
+                } else if (edge1.end.id === edge2.start.id) {
+                    sharedPoint = edge1.end;
+                    edge1Dir = { x: edge1.start.x - edge1.end.x, y: edge1.start.y - edge1.end.y };
+                    edge2Dir = { x: edge2.end.x - edge2.start.x, y: edge2.end.y - edge2.start.y };
+                } else if (edge1.end.id === edge2.end.id) {
+                    sharedPoint = edge1.end;
+                    edge1Dir = { x: edge1.start.x - edge1.end.x, y: edge1.start.y - edge1.end.y };
+                    edge2Dir = { x: edge2.start.x - edge2.end.x, y: edge2.start.y - edge2.end.y };
+                }
+                
+                if (!sharedPoint) return 180;
+                
+                // Calculate angle using dot product
+                const dot = edge1Dir.x * edge2Dir.x + edge1Dir.y * edge2Dir.y;
+                const mag1 = Math.sqrt(edge1Dir.x ** 2 + edge1Dir.y ** 2);
+                const mag2 = Math.sqrt(edge2Dir.x ** 2 + edge2Dir.y ** 2);
+                
+                if (mag1 === 0 || mag2 === 0) return 0;
+                
+                const cosAngle = dot / (mag1 * mag2);
+                const clampedCos = Math.max(-1, Math.min(1, cosAngle));
+                const angleRadians = Math.acos(clampedCos);
+                
+                return angleRadians * (180 / Math.PI);
+            }
+            
+            applyEvolution() {
+                for (const edge of this.edges) {
+                    let evolutionValue = 0;
+                    
+                    if (edge.acuteAngleCount > 0) {
+                        evolutionValue = this.config.changeRate * edge.acuteAngleCount;
+                    } else {
+                        evolutionValue = -this.config.changeRate;
+                    }
+                    
+                    edge.expandValue = evolutionValue;
+                    
+                    // Apply deformation
+                    const deformationFactor = (evolutionValue / 100) * 0.1; // Spring strength
+                    this.deformEdge(edge, deformationFactor);
+                }
+            }
+            
+            deformEdge(edge, deformationFactor) {
+                const centerX = (edge.start.x + edge.end.x) / 2;
+                const centerY = (edge.start.y + edge.end.y) / 2;
+                
+                const directionX = edge.end.x - edge.start.x;
+                const directionY = edge.end.y - edge.start.y;
+                const edgeLength = Math.sqrt(directionX ** 2 + directionY ** 2);
+                
+                if (edgeLength === 0) return;
+                
+                const normalizedDirX = directionX / edgeLength;
+                const normalizedDirY = directionY / edgeLength;
+                
+                const newLength = edgeLength * (1 + deformationFactor);
+                const halfNewLength = newLength / 2;
+                
+                // Apply damping
+                const dampingFactor = 0.8;
+                const newStartX = centerX - normalizedDirX * halfNewLength;
+                const newStartY = centerY - normalizedDirY * halfNewLength;
+                const newEndX = centerX + normalizedDirX * halfNewLength;
+                const newEndY = centerY + normalizedDirY * halfNewLength;
+                
+                edge.start.x = edge.start.x + (newStartX - edge.start.x) * dampingFactor;
+                edge.start.y = edge.start.y + (newStartY - edge.start.y) * dampingFactor;
+                edge.end.x = edge.end.x + (newEndX - edge.end.x) * dampingFactor;
+                edge.end.y = edge.end.y + (newEndY - edge.end.y) * dampingFactor;
+                
+                edge.length = newLength;
+            }
+            
+            updateVisualMesh() {
+                if (!this.meshGroup) return;
+                
+                let pointIndex = 0;
+                let edgeIndex = 0;
+                
+                // Update point positions
+                for (const point of this.points) {
+                    const mesh = this.meshGroup.children[pointIndex];
+                    mesh.position.set(point.x, point.y, 0);
+                    pointIndex++;
+                }
+                
+                // Update edge positions
+                for (const edge of this.edges) {
+                    const line = this.meshGroup.children[pointIndex + edgeIndex];
+                    const positions = line.geometry.attributes.position;
+                    
+                    positions.setXYZ(0, edge.start.x, edge.start.y, 0.01);
+                    positions.setXYZ(1, edge.end.x, edge.end.y, 0.01);
+                    positions.needsUpdate = true;
+                    
+                    edgeIndex++;
+                }
+            }
+            
+            updateInfoDisplay(analysisResults = null) {
+                document.getElementById('generation').textContent = this.generation;
+                
+                if (analysisResults) {
+                    document.getElementById('acuteEdges').textContent = analysisResults.acuteEdgeCount;
+                    document.getElementById('expandingEdges').textContent = analysisResults.expandingEdgeCount;
+                    document.getElementById('shrinkingEdges').textContent = analysisResults.shrinkingEdgeCount;
+                } else {
+                    document.getElementById('acuteEdges').textContent = '0';
+                    document.getElementById('expandingEdges').textContent = '0';
+                    document.getElementById('shrinkingEdges').textContent = '0';
+                }
+            }
+            
+            onWindowResize() {
+                this.config.canvasWidth = window.innerWidth;
+                this.config.canvasHeight = window.innerHeight;
+                
+                const aspect = this.config.canvasWidth / this.config.canvasHeight;
+                const frustumSize = 20;
+                
+                this.camera.left = -frustumSize * aspect / 2;
+                this.camera.right = frustumSize * aspect / 2;
+                this.camera.top = frustumSize / 2;
+                this.camera.bottom = -frustumSize / 2;
+                this.camera.updateProjectionMatrix();
+                
+                this.renderer.setSize(this.config.canvasWidth, this.config.canvasHeight);
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+        
+        // Initialize the application when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimpleVoronoiEvolution();
+        });
+    </script>
+</body>
+</html> 
