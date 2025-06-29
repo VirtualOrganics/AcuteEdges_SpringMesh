@@ -2,125 +2,1163 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acute Edge Voronoi Mesh</title>
+    <title>Simple Dynamic Voronoi Mesh</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #222;
-            font-family: Arial, sans-serif;
+        body { 
+            margin: 0; 
+            padding: 20px;
+            font-family: Arial, sans-serif; 
+            background-color: #808080; /* Medium grey default */
+            display: flex;
+            gap: 20px;
         }
-        
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            position: relative;
+        canvas { 
+            display: block; 
+            border: 2px solid #333;
+            background: #808080; /* Match body background - will be updated dynamically */
         }
-        
+        #container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        #canvasContainer {
+            border: 2px solid #333;
+            background: #808080; /* Match body background - will be updated dynamically */
+        }
         #controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0,0,0,0.8);
             color: white;
             padding: 15px;
             border-radius: 8px;
-            z-index: 100;
+            min-width: 280px;
+            max-width: 280px;
         }
-        
-        .control-group {
-            margin-bottom: 12px;
-        }
-        
-        label {
+        #controls label {
             display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
+            margin: 8px 0;
+            font-size: 14px;
         }
-        
-        input[type="range"] {
-            width: 150px;
-            margin-right: 10px;
+        #controls input[type="range"] {
+            width: 200px;
+            margin: 5px 0;
         }
-        
-        input[type="number"] {
-            width: 60px;
-            padding: 2px 5px;
-            background: #333;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 3px;
-        }
-        
-        button {
+        #controls button {
+            margin: 5px 5px 5px 0;
+            padding: 8px 12px;
             background: #4CAF50;
             color: white;
             border: none;
-            padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
-            margin: 5px 5px 5px 0;
         }
-        
-        button:hover {
+        #controls button:hover {
             background: #45a049;
         }
-        
-        button.pause {
-            background: #f44336;
+        #controls .value {
+            font-weight: bold;
+            color: #4CAF50;
         }
-        
-        #info {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 8px;
+        #debug {
             font-size: 12px;
-            z-index: 100;
+            color: #aaa;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
+    <div id="container">
         <div id="controls">
-            <div class="control-group">
-                <label>Cell Count:</label>
-                <input type="range" id="cellCount" min="10" max="200" value="50">
-                <input type="number" id="cellCountValue" min="10" max="200" value="50">
-            </div>
+            <h3>Voronoi Mesh Controls</h3>
             
-            <div class="control-group">
-                <label>Expand/Shrink Rate (%):</label>
-                <input type="range" id="changeRate" min="1" max="20" value="5">
-                <input type="number" id="changeRateValue" min="1" max="20" value="5">
-            </div>
+            <label>
+                Canvas Width: <span id="widthLabel" class="value">800</span>
+                <input type="number" id="canvasWidth" min="400" max="1200" value="800" style="width: 80px; padding: 4px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; background: white; color: black;">
+            </label>
+            <label>
+                Canvas Height: <span id="heightLabel" class="value">600</span>
+                <input type="number" id="canvasHeight" min="300" max="900" value="600" style="width: 80px; padding: 4px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; background: white; color: black;">
+            </label>
             
-            <div class="control-group">
-                <label>Evolution Speed (ms):</label>
-                <input type="range" id="evolutionSpeed" min="100" max="2000" value="200">
-                <input type="number" id="evolutionSpeedValue" min="100" max="2000" value="200">
-            </div>
-            
-            <div class="control-group">
-                <button id="regenerate">Regenerate Mesh</button>
-                <button id="startEvolution">Start Evolution</button>
-                <button id="pauseEvolution" class="pause">Pause</button>
-            </div>
+            <label>
+                Number of Seeds: <span id="seedCountLabel" class="value">300</span>
+                <input type="number" id="seedCount" min="3" max="1000" value="300" style="width: 80px; padding: 4px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; background: white; color: black;">
+            </label>
+            <label>
+                Expansion %: <span id="expandLabel" class="value">14</span>
+                <input type="range" id="expandPercent" min="1" max="20" value="14">
+            </label>
+            <label>
+                Shrinkage %: <span id="shrinkLabel" class="value">15</span>
+                <input type="range" id="shrinkPercent" min="1" max="20" value="15">
+            </label>
+            <label>
+                Spring Strength: <span id="springLabel" class="value">0.5</span>
+                <input type="range" id="springStrength" min="0.01" max="0.5" step="0.01" value="0.5">
+            </label>
+            <label>
+                Vertex Mass: <span id="massLabel" class="value">4.4</span>
+                <input type="range" id="vertexMass" min="0.1" max="5.0" step="0.1" value="4.4">
+            </label>
+            <label>
+                Expansion Rate: <span id="rateLabel" class="value">0.037</span>
+                <input type="range" id="expansionRate" min="0.001" max="0.05" step="0.001" value="0.037">
+            </label>
+            <label>
+                Background Brightness: <span id="backgroundLabel" class="value">50</span>
+                <input type="range" id="backgroundBrightness" min="10" max="90" value="50">
+            </label>
+            <label>
+                <input type="checkbox" id="showColors" checked style="margin-right: 8px;">
+                Show Edge Colors
+            </label>
+            <label>
+                <input type="checkbox" id="invertBehavior" style="margin-right: 8px;">
+                Invert Expansion (Blue expands, Others shrink)
+            </label>
+            <label>
+                <input type="checkbox" id="periodicBoundaries" style="margin-right: 8px;">
+                Periodic Boundaries (Toroidal)
+            </label>
+            <label>
+                <input type="checkbox" id="showDelaunayTriangles" style="margin-right: 8px;">
+                Show Delaunay Triangles
+            </label>
+            <label>
+                <input type="checkbox" id="useBlueNoise" style="margin-right: 8px;">
+                Use Blue Noise (Poisson Disk)
+            </label>
+            <button id="regenerate">Regenerate Mesh</button>
+            <button id="toggleEvolution">Start Evolution</button>
+            <div>Status: <span id="status" class="value">Stopped</span></div>
+            <div id="debug">Ready to generate mesh...</div>
         </div>
-        
-        <div id="info">
-            <div>Generation: <span id="generation">0</span></div>
-            <div>Acute Edges: <span id="acuteEdges">0</span></div>
-            <div>Expanding Edges: <span id="expandingEdges">0</span></div>
-            <div>Shrinking Edges: <span id="shrinkingEdges">0</span></div>
+
+        <div id="canvasContainer">
+            <canvas id="canvas"></canvas>
         </div>
     </div>
-    
-    <script type="module" src="./js/main.js"></script>
+
+    <script>
+        // PROPER implementation - work with mesh vertices and edges, NOT seeds!
+        
+        let canvas, ctx;
+        let meshVertices = [];  // Array of {x, y, vx, vy} - the actual mesh vertices
+        let meshEdges = [];     // Array of {v1, v2, originalLength, targetLength, acuteCount}
+        let delaunayTriangles = []; // Store the original Delaunay triangles for optional rendering
+        let isEvolutionRunning = false;
+        let animationId;
+        
+        // Configuration
+        const config = {
+            width: 800,
+            height: 600,
+            seedCount: 300,  // Changed from 200 to 300
+            expandPercent: 14,  // Changed from 5 to 14
+            shrinkPercent: 15,  // Changed from 5 to 15
+            springStrength: 0.5,  // Changed from 0.1 to 0.5
+            damping: 0.98,
+            vertexMass: 4.4,  // Changed from 3.0 to 4.4
+            expansionRate: 0.037,  // Changed from 0.01 to 0.037
+            backgroundBrightness: 50,  // Background grey brightness (10=dark, 90=light)
+            showColors: true,
+            invertBehavior: true,  // Changed from false to true
+            periodicBoundaries: false,  // Changed from true to false
+            showDelaunayTriangles: false,  // Changed from true to false
+            useBlueNoise: true
+        };
+
+        // Initialize canvas
+        function initCanvas() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set fixed canvas size instead of fullscreen
+            canvas.width = config.width;
+            canvas.height = config.height;
+            
+            updateDebug('Canvas initialized: ' + canvas.width + 'x' + canvas.height);
+        }
+
+        // Update debug display
+        function updateDebug(message) {
+            document.getElementById('debug').textContent = message;
+            console.log('🔧 ' + message);
+        }
+
+        // Generate Poisson disk distributed points (blue noise) - EDGE-COMPLETE VERSION
+        function generatePoissonDiskPoints(width, height, targetCount, minDistance = null) {
+            const points = [];
+            
+            // Calculate optimal grid size to fit target count
+            const aspect = width / height;
+            const gridHeight = Math.sqrt(targetCount / aspect);
+            const gridWidth = gridHeight * aspect;
+            const cellsX = Math.ceil(gridWidth);
+            const cellsY = Math.ceil(gridHeight);
+            
+            const cellWidth = width / cellsX;
+            const cellHeight = height / cellsY;
+            
+            // Auto-calculate minimum distance based on cell size
+            if (!minDistance) {
+                minDistance = Math.min(cellWidth, cellHeight) * 0.5; // Reduced for denser packing
+            }
+            
+            updateDebug(`Blue noise grid: ${cellsX}x${cellsY}, cell size: ${cellWidth.toFixed(1)}x${cellHeight.toFixed(1)}`);
+            
+            // Place one point per grid cell with EDGE-AWARE positioning
+            for (let i = 0; i < cellsX && points.length < targetCount; i++) {
+                for (let j = 0; j < cellsY && points.length < targetCount; j++) {
+                    // Cell bounds
+                    const cellLeft = i * cellWidth;
+                    const cellTop = j * cellHeight;
+                    const cellRight = Math.min((i + 1) * cellWidth, width);
+                    const cellBottom = Math.min((j + 1) * cellHeight, height);
+                    
+                    // Center of cell
+                    const centerX = (cellLeft + cellRight) / 2;
+                    const centerY = (cellTop + cellBottom) / 2;
+                    
+                    // Special handling for edge cells
+                    const isLeftEdge = (i === 0);
+                    const isRightEdge = (i === cellsX - 1);
+                    const isTopEdge = (j === 0);
+                    const isBottomEdge = (j === cellsY - 1);
+                    
+                    let x, y;
+                    
+                    if (isLeftEdge || isRightEdge || isTopEdge || isBottomEdge) {
+                        // Edge cells: bias toward the actual edge with smaller jitter
+                        let jitterX = (Math.random() - 0.5) * cellWidth * 0.3; // Reduced jitter
+                        let jitterY = (Math.random() - 0.5) * cellHeight * 0.3;
+                        
+                        if (isLeftEdge) {
+                            // Bias toward left edge
+                            x = Math.max(5, centerX + jitterX - cellWidth * 0.2);
+                        } else if (isRightEdge) {
+                            // Bias toward right edge
+                            x = Math.min(width - 5, centerX + jitterX + cellWidth * 0.2);
+                        } else {
+                            x = centerX + jitterX;
+                        }
+                        
+                        if (isTopEdge) {
+                            // Bias toward top edge
+                            y = Math.max(5, centerY + jitterY - cellHeight * 0.2);
+                        } else if (isBottomEdge) {
+                            // Bias toward bottom edge
+                            y = Math.min(height - 5, centerY + jitterY + cellHeight * 0.2);
+                        } else {
+                            y = centerY + jitterY;
+                        }
+                        
+                        // Ensure within canvas bounds
+                        x = Math.max(2, Math.min(width - 2, x));
+                        y = Math.max(2, Math.min(height - 2, y));
+                    } else {
+                        // Interior cells: normal jitter
+                        const jitterX = (Math.random() - 0.5) * cellWidth * 0.6;
+                        const jitterY = (Math.random() - 0.5) * cellHeight * 0.6;
+                        
+                        x = Math.max(cellLeft + minDistance * 0.1, 
+                                   Math.min(cellRight - minDistance * 0.1, 
+                                           centerX + jitterX));
+                        y = Math.max(cellTop + minDistance * 0.1, 
+                                   Math.min(cellBottom - minDistance * 0.1, 
+                                           centerY + jitterY));
+                    }
+                    
+                    points.push({ x, y, id: points.length });
+                }
+            }
+            
+            // EDGE GAP FILLING: Specifically target border areas
+            const edgeMargin = Math.min(cellWidth, cellHeight) * 0.8;
+            const edgeAttempts = Math.min(100, targetCount - points.length);
+            
+            for (let attempt = 0; attempt < edgeAttempts; attempt++) {
+                let x, y;
+                
+                // Generate points specifically near edges
+                const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
+                
+                switch (edge) {
+                    case 0: // Left edge
+                        x = Math.random() * edgeMargin;
+                        y = Math.random() * height;
+                        break;
+                    case 1: // Right edge
+                        x = width - Math.random() * edgeMargin;
+                        y = Math.random() * height;
+                        break;
+                    case 2: // Top edge
+                        x = Math.random() * width;
+                        y = Math.random() * edgeMargin;
+                        break;
+                    case 3: // Bottom edge
+                        x = Math.random() * width;
+                        y = height - Math.random() * edgeMargin;
+                        break;
+                }
+                
+                // Check if this edge point has enough space
+                let valid = true;
+                for (const other of points) {
+                    const dist = Math.sqrt((x - other.x) ** 2 + (y - other.y) ** 2);
+                    if (dist < minDistance * 0.4) { // Very relaxed for edge filling
+                        valid = false;
+                        break;
+                    }
+                }
+                
+                if (valid && points.length < targetCount) {
+                    points.push({ x, y, id: points.length });
+                }
+            }
+            
+            // Final random fill for any remaining points
+            let attempts = 0;
+            while (points.length < targetCount && attempts < targetCount * 30) {
+                attempts++;
+                
+                const x = Math.random() * width;
+                const y = Math.random() * height;
+                
+                let valid = true;
+                for (const other of points) {
+                    const dist = Math.sqrt((x - other.x) ** 2 + (y - other.y) ** 2);
+                    if (dist < minDistance * 0.3) { // Even more relaxed
+                        valid = false;
+                        break;
+                    }
+                }
+                
+                if (valid) {
+                    points.push({ x, y, id: points.length });
+                }
+            }
+            
+            updateDebug(`Generated ${points.length} blue noise points (target: ${targetCount}, min distance: ${minDistance.toFixed(1)})`);
+            return points;
+        }
+
+        // Generate Voronoi mesh - seeds are ONLY used for initial generation
+        function generateVoronoiMesh() {
+            updateDebug('Generating barycentric dual mesh...');
+            
+            // Step 1: Generate seeds using chosen distribution
+            let seeds;
+            if (config.useBlueNoise) {
+                seeds = generatePoissonDiskPoints(config.width, config.height, config.seedCount);
+            } else {
+                // Original uniform random distribution
+                seeds = [];
+                for (let i = 0; i < config.seedCount; i++) {
+                    seeds.push({
+                        x: Math.random() * config.width,
+                        y: Math.random() * config.height,
+                        id: i
+                    });
+                }
+                updateDebug(`Generated ${seeds.length} random points`);
+            }
+            
+            // Step 1b: Add ghost seeds for periodic boundaries
+            if (config.periodicBoundaries) {
+                const originalSeeds = [...seeds];
+                originalSeeds.forEach(seed => {
+                    // Add 8 copies around the main canvas for proper toroidal connectivity
+                    const offsets = [
+                        [-config.width, -config.height], [0, -config.height], [config.width, -config.height],
+                        [-config.width, 0],                                     [config.width, 0],
+                        [-config.width, config.height],  [0, config.height],  [config.width, config.height]
+                    ];
+                    
+                    offsets.forEach(([dx, dy]) => {
+                        seeds.push({
+                            x: seed.x + dx,
+                            y: seed.y + dy,
+                            id: seed.id + 1000 // Mark as ghost
+                        });
+                    });
+                });
+            }
+            
+            // Step 2: Create proper Voronoi edges using Fortune's algorithm approach
+            meshVertices = [];
+            meshEdges = [];
+            
+            // Use Delaunay triangulation to get Voronoi dual
+            const triangles = delaunayTriangulation(seeds);
+            delaunayTriangles = triangles; // Store for optional rendering
+            const voronoiEdges = getBarycentricDualFromDelaunay(triangles, seeds);
+            
+            // Convert to our mesh format (only keep vertices within main canvas)
+            const vertexMap = new Map();
+            let vertexIndex = 0;
+            
+            voronoiEdges.forEach(edge => {
+                // Only process edges where both vertices are within the main canvas
+                const withinBounds = (point) => 
+                    point.x >= 0 && point.x <= config.width && 
+                    point.y >= 0 && point.y <= config.height;
+                
+                if (!withinBounds(edge.start) || !withinBounds(edge.end)) {
+                    return; // Skip edges outside main canvas
+                }
+                
+                // Add start vertex
+                const startKey = `${edge.start.x.toFixed(2)},${edge.start.y.toFixed(2)}`;
+                if (!vertexMap.has(startKey)) {
+                    meshVertices.push({
+                        x: edge.start.x,
+                        y: edge.start.y,
+                        vx: 0,
+                        vy: 0,
+                        mass: config.vertexMass,  // Add mass property
+                        index: vertexIndex
+                    });
+                    vertexMap.set(startKey, vertexIndex);
+                    vertexIndex++;
+                }
+                
+                // Add end vertex
+                const endKey = `${edge.end.x.toFixed(2)},${edge.end.y.toFixed(2)}`;
+                if (!vertexMap.has(endKey)) {
+                    meshVertices.push({
+                        x: edge.end.x,
+                        y: edge.end.y,
+                        vx: 0,
+                        vy: 0,
+                        mass: config.vertexMass,  // Add mass property
+                        index: vertexIndex
+                    });
+                    vertexMap.set(endKey, vertexIndex);
+                    vertexIndex++;
+                }
+                
+                // Add edge
+                const startIdx = vertexMap.get(startKey);
+                const endIdx = vertexMap.get(endKey);
+                const length = Math.sqrt(
+                    (edge.end.x - edge.start.x) ** 2 + 
+                    (edge.end.y - edge.start.y) ** 2
+                );
+                
+                // Filter out overly long edges during generation
+                const maxEdgeLength = Math.min(config.width, config.height) / 2;
+                if (length > maxEdgeLength) {
+                    return; // Skip this edge entirely
+                }
+                
+                meshEdges.push({
+                    v1: startIdx,
+                    v2: endIdx,
+                    originalLength: length,
+                    targetLength: length,
+                    acuteCount: 0
+                });
+            });
+            
+            updateDebug(`Generated barycentric dual mesh: ${meshVertices.length} vertices, ${meshEdges.length} edges`);
+            
+            // Step 3: Analyze acute angles for each edge
+            analyzeAcuteAngles();
+        }
+
+        // Simple Delaunay triangulation (Bowyer-Watson algorithm)
+        function delaunayTriangulation(points) {
+            // Create super triangle that contains all points
+            const superTriangle = {
+                a: { x: -10000, y: -10000 },
+                b: { x: 10000, y: -10000 },
+                c: { x: 0, y: 10000 }
+            };
+            
+            const triangles = [superTriangle];
+            
+            // Add each point
+            points.forEach(point => {
+                const badTriangles = [];
+                const polygon = [];
+                
+                // Find triangles whose circumcircle contains the point
+                triangles.forEach(triangle => {
+                    if (inCircumcircle(point, triangle)) {
+                        badTriangles.push(triangle);
+                    }
+                });
+                
+                // Find the boundary of the polygonal hole
+                badTriangles.forEach(triangle => {
+                    [
+                        [triangle.a, triangle.b],
+                        [triangle.b, triangle.c],
+                        [triangle.c, triangle.a]
+                    ].forEach(edge => {
+                        // Check if this edge is shared with another bad triangle
+                        let isShared = false;
+                        badTriangles.forEach(otherTriangle => {
+                            if (triangle === otherTriangle) return;
+                            if (hasEdge(otherTriangle, edge[0], edge[1])) {
+                                isShared = true;
+                            }
+                        });
+                        
+                        if (!isShared) {
+                            polygon.push(edge);
+                        }
+                    });
+                });
+                
+                // Remove bad triangles
+                badTriangles.forEach(badTriangle => {
+                    const index = triangles.indexOf(badTriangle);
+                    if (index > -1) {
+                        triangles.splice(index, 1);
+                    }
+                });
+                
+                // Add new triangles formed by connecting point to polygon boundary
+                polygon.forEach(edge => {
+                    triangles.push({
+                        a: edge[0],
+                        b: edge[1],
+                        c: point
+                    });
+                });
+            });
+            
+            // Remove triangles that share vertices with super triangle
+            return triangles.filter(triangle => 
+                !shareVertexWithSuper(triangle, superTriangle)
+            );
+        }
+        
+        // Check if point is inside circumcircle of triangle
+        function inCircumcircle(point, triangle) {
+            const a = triangle.a;
+            const b = triangle.b;
+            const c = triangle.c;
+            
+            const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+            if (Math.abs(d) < 1e-10) return false;
+            
+            const ux = ((a.x * a.x + a.y * a.y) * (b.y - c.y) + 
+                       (b.x * b.x + b.y * b.y) * (c.y - a.y) + 
+                       (c.x * c.x + c.y * c.y) * (a.y - b.y)) / d;
+            const uy = ((a.x * a.x + a.y * a.y) * (c.x - b.x) + 
+                       (b.x * b.x + b.y * b.y) * (a.x - c.x) + 
+                       (c.x * c.x + c.y * c.y) * (b.x - a.x)) / d;
+            
+            const dx = point.x - ux;
+            const dy = point.y - uy;
+            const radius = Math.sqrt((a.x - ux) ** 2 + (a.y - uy) ** 2);
+            
+            return (dx * dx + dy * dy) <= (radius * radius + 1e-10);
+        }
+        
+        // Check if triangle has edge
+        function hasEdge(triangle, p1, p2) {
+            return (triangle.a === p1 && triangle.b === p2) ||
+                   (triangle.a === p2 && triangle.b === p1) ||
+                   (triangle.b === p1 && triangle.c === p2) ||
+                   (triangle.b === p2 && triangle.c === p1) ||
+                   (triangle.c === p1 && triangle.a === p2) ||
+                   (triangle.c === p2 && triangle.a === p1);
+        }
+        
+        // Check if triangle shares vertex with super triangle
+        function shareVertexWithSuper(triangle, superTriangle) {
+            return triangle.a === superTriangle.a || triangle.a === superTriangle.b || triangle.a === superTriangle.c ||
+                   triangle.b === superTriangle.a || triangle.b === superTriangle.b || triangle.b === superTriangle.c ||
+                   triangle.c === superTriangle.a || triangle.c === superTriangle.b || triangle.c === superTriangle.c;
+        }
+        
+        // Get barycentric dual mesh from Delaunay triangulation (Red Blob Games method)
+        function getBarycentricDualFromDelaunay(triangles, seeds) {
+            const dualEdges = [];
+            const triangleCentroids = new Map();
+            
+            // Calculate centroids (barycenters) for each triangle instead of circumcenters
+            triangles.forEach((triangle, index) => {
+                const centroid = getTriangleCentroid(triangle);
+                triangleCentroids.set(triangle, centroid);
+            });
+            
+            // For each pair of adjacent triangles, create a dual edge between their centroids
+            for (let i = 0; i < triangles.length; i++) {
+                for (let j = i + 1; j < triangles.length; j++) {
+                    const tri1 = triangles[i];
+                    const tri2 = triangles[j];
+                    
+                    // Check if triangles share an edge
+                    const sharedEdge = getSharedEdge(tri1, tri2);
+                    if (sharedEdge) {
+                        const centroid1 = triangleCentroids.get(tri1);
+                        const centroid2 = triangleCentroids.get(tri2);
+                        
+                        // Only add if both centroids are within bounds
+                        if (isWithinBounds(centroid1) && isWithinBounds(centroid2)) {
+                            dualEdges.push({
+                                start: centroid1,
+                                end: centroid2,
+                                sharedEdge: sharedEdge
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return dualEdges;
+        }
+        
+        // Calculate centroid (barycenter) of triangle - always inside triangle!
+        function getTriangleCentroid(triangle) {
+            const a = triangle.a;
+            const b = triangle.b;
+            const c = triangle.c;
+            
+            // Centroid is simply the average of the three vertices
+            return {
+                x: (a.x + b.x + c.x) / 3,
+                y: (a.y + b.y + c.y) / 3
+            };
+        }
+        
+        // Check if two triangles share an edge
+        function getSharedEdge(tri1, tri2) {
+            const edges1 = [
+                [tri1.a, tri1.b],
+                [tri1.b, tri1.c],
+                [tri1.c, tri1.a]
+            ];
+            
+            const edges2 = [
+                [tri2.a, tri2.b],
+                [tri2.b, tri2.c],
+                [tri2.c, tri2.a]
+            ];
+            
+            for (let edge1 of edges1) {
+                for (let edge2 of edges2) {
+                    if ((edge1[0] === edge2[0] && edge1[1] === edge2[1]) ||
+                        (edge1[0] === edge2[1] && edge1[1] === edge2[0])) {
+                        return edge1;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        // Check if point is within canvas bounds
+        function isWithinBounds(point) {
+            return true; // No boundary constraints with periodic boundaries
+        }
+
+        // Analyze acute angles - the core logic!
+        function analyzeAcuteAngles() {
+            updateDebug('Analyzing acute angles...');
+            
+            meshEdges.forEach(edge => {
+                edge.acuteCount = 0;
+                
+                // Check angles at vertex 1
+                const connectedEdges1 = meshEdges.filter(e => 
+                    (e.v1 === edge.v1 || e.v2 === edge.v1) && e !== edge
+                );
+                
+                connectedEdges1.forEach(otherEdge => {
+                    const angle = calculateAngle(edge, otherEdge, edge.v1);
+                    if (angle < Math.PI / 2) { // Less than 90 degrees
+                        edge.acuteCount++;
+                    }
+                });
+                
+                // Check angles at vertex 2
+                const connectedEdges2 = meshEdges.filter(e => 
+                    (e.v1 === edge.v2 || e.v2 === edge.v2) && e !== edge
+                );
+                
+                connectedEdges2.forEach(otherEdge => {
+                    const angle = calculateAngle(edge, otherEdge, edge.v2);
+                    if (angle < Math.PI / 2) { // Less than 90 degrees
+                        edge.acuteCount++;
+                    }
+                });
+                
+                // Set target length based on acute connections
+                let desiredTargetLength;
+                if (config.invertBehavior) {
+                    // Inverted mode: Blue (0 acute) expands, others shrink
+                    if (edge.acuteCount === 0) {
+                        // Expand if no acute connections
+                        desiredTargetLength = edge.originalLength * (1 + config.expandPercent / 100);
+                    } else {
+                        // Shrink if has acute connections
+                        desiredTargetLength = edge.originalLength * (1 - (config.shrinkPercent / 100) * edge.acuteCount);
+                    }
+                } else {
+                    // Normal mode: Blue (0 acute) shrinks, others expand
+                    if (edge.acuteCount > 0) {
+                        // Expand by percentage per acute connection
+                        desiredTargetLength = edge.originalLength * (1 + (config.expandPercent / 100) * edge.acuteCount);
+                    } else {
+                        // Shrink if no acute connections
+                        desiredTargetLength = edge.originalLength * (1 - config.shrinkPercent / 100);
+                    }
+                }
+                
+                // Gradually move towards desired target length
+                const lengthDiff = desiredTargetLength - edge.targetLength;
+                edge.targetLength += lengthDiff * config.expansionRate;
+            });
+            
+            updateDebug(`Analyzed angles - edges with acute connections: ${meshEdges.filter(e => e.acuteCount > 0).length}`);
+        }
+
+        // Calculate angle between two edges at shared vertex
+        function calculateAngle(edge1, edge2, sharedVertexIndex) {
+            const shared = meshVertices[sharedVertexIndex];
+            
+            // Get other vertex for each edge
+            const other1Index = edge1.v1 === sharedVertexIndex ? edge1.v2 : edge1.v1;
+            const other2Index = edge2.v1 === sharedVertexIndex ? edge2.v2 : edge2.v1;
+            
+            const other1 = meshVertices[other1Index];
+            const other2 = meshVertices[other2Index];
+            
+            // Calculate direction vectors (respecting periodic boundaries)
+            let dir1x, dir1y, dir2x, dir2y;
+            
+            if (config.periodicBoundaries) {
+                const result1 = getPeriodicDistance(shared, other1);
+                const result2 = getPeriodicDistance(shared, other2);
+                dir1x = result1.dx;
+                dir1y = result1.dy;
+                dir2x = result2.dx;
+                dir2y = result2.dy;
+            } else {
+                dir1x = other1.x - shared.x;
+                dir1y = other1.y - shared.y;
+                dir2x = other2.x - shared.x;
+                dir2y = other2.y - shared.y;
+            }
+            
+            // Normalize
+            const len1 = Math.sqrt(dir1x * dir1x + dir1y * dir1y);
+            const len2 = Math.sqrt(dir2x * dir2x + dir2y * dir2y);
+            
+            if (len1 === 0 || len2 === 0) return Math.PI;
+            
+            const norm1x = dir1x / len1;
+            const norm1y = dir1y / len1;
+            const norm2x = dir2x / len2;
+            const norm2y = dir2y / len2;
+            
+            // Dot product for angle
+            const dot = norm1x * norm2x + norm1y * norm2y;
+            return Math.acos(Math.max(-1, Math.min(1, dot)));
+        }
+
+        // Apply spring physics to mesh vertices (NOT seeds!)
+        function updatePhysics() {
+            // Clear forces
+            meshVertices.forEach(vertex => {
+                vertex.fx = 0;
+                vertex.fy = 0;
+            });
+            
+            // Apply spring forces based on edge target lengths
+            meshEdges.forEach(edge => {
+                const v1 = meshVertices[edge.v1];
+                const v2 = meshVertices[edge.v2];
+                
+                // Calculate distance (with or without periodic boundaries)
+                let dx, dy, distance;
+                if (config.periodicBoundaries) {
+                    const result = getPeriodicDistance(v1, v2);
+                    dx = result.dx;
+                    dy = result.dy;
+                    distance = result.distance;
+                } else {
+                    dx = v2.x - v1.x;
+                    dy = v2.y - v1.y;
+                    distance = Math.sqrt(dx * dx + dy * dy);
+                }
+                
+                if (distance === 0) return;
+                
+                const lengthDiff = edge.targetLength - distance;
+                const force = lengthDiff * config.springStrength;
+                
+                const fx = (dx / distance) * force;
+                const fy = (dy / distance) * force;
+                
+                v1.fx -= fx;
+                v1.fy -= fy;
+                v2.fx += fx;
+                v2.fy += fy;
+            });
+            
+            // Update velocities and positions using mass-based acceleration
+            meshVertices.forEach(vertex => {
+                // Apply forces with mass: a = F/m
+                const ax = vertex.fx / vertex.mass;
+                const ay = vertex.fy / vertex.mass;
+                
+                vertex.vx += ax;
+                vertex.vy += ay;
+                vertex.vx *= config.damping;
+                vertex.vy *= config.damping;
+                
+                vertex.x += vertex.vx;
+                vertex.y += vertex.vy;
+                
+                if (config.periodicBoundaries) {
+                    // Periodic boundary wrapping
+                    vertex.x = wrapCoordinate(vertex.x, config.width);
+                    vertex.y = wrapCoordinate(vertex.y, config.height);
+                } else {
+                    // Non-sticky boundary constraints with proper bouncing
+                    const minBounceVel = 0.5; // Minimum velocity to prevent sticking
+                    
+                    if (vertex.x <= 0) {
+                        vertex.x = 0.1; // Small offset to prevent exact boundary position
+                        vertex.vx = Math.max(Math.abs(vertex.vx) * 0.5, minBounceVel);
+                    }
+                    if (vertex.x >= config.width) {
+                        vertex.x = config.width - 0.1;
+                        vertex.vx = -Math.max(Math.abs(vertex.vx) * 0.5, minBounceVel);
+                    }
+                    if (vertex.y <= 0) {
+                        vertex.y = 0.1;
+                        vertex.vy = Math.max(Math.abs(vertex.vy) * 0.5, minBounceVel);
+                    }
+                    if (vertex.y >= config.height) {
+                        vertex.y = config.height - 0.1;
+                        vertex.vy = -Math.max(Math.abs(vertex.vy) * 0.5, minBounceVel);
+                    }
+                }
+            });
+        }
+
+        // Calculate distance with periodic boundaries (shortest path on torus)
+        function getPeriodicDistance(v1, v2) {
+            let dx = v2.x - v1.x;
+            let dy = v2.y - v1.y;
+            
+            // Wrap dx to shortest distance
+            if (Math.abs(dx) > config.width / 2) {
+                dx = dx > 0 ? dx - config.width : dx + config.width;
+            }
+            
+            // Wrap dy to shortest distance
+            if (Math.abs(dy) > config.height / 2) {
+                dy = dy > 0 ? dy - config.height : dy + config.height;
+            }
+            
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return { dx, dy, distance };
+        }
+
+        // Wrap coordinate to stay within bounds
+        function wrapCoordinate(coord, limit) {
+            while (coord < 0) coord += limit;
+            while (coord >= limit) coord -= limit;
+            return coord;
+        }
+
+        // Render the mesh (NOT the seeds!)
+        function render() {
+            // Clear canvas with current background color instead of white
+            const greyValue = Math.round(config.backgroundBrightness * 2.55);
+            ctx.fillStyle = `rgb(${greyValue}, ${greyValue}, ${greyValue})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Optionally draw Delaunay triangles first (behind everything)
+            if (config.showDelaunayTriangles) {
+                renderDelaunayTriangles();
+            }
+            
+            // Draw edges with color coding and periodic boundary handling
+            meshEdges.forEach(edge => {
+                const v1 = meshVertices[edge.v1];
+                const v2 = meshVertices[edge.v2];
+                
+                // Color based on acute connections or all black
+                if (config.showColors) {
+                    if (edge.acuteCount === 0) {
+                        ctx.strokeStyle = '#0066ff'; // Blue - shrinking
+                    } else if (edge.acuteCount === 1) {
+                        ctx.strokeStyle = '#00ff00'; // Green - 1 acute
+                    } else if (edge.acuteCount === 2) {
+                        ctx.strokeStyle = '#ffaa00'; // Orange - 2 acute
+                    } else {
+                        ctx.strokeStyle = '#ff0000'; // Red - 3+ acute
+                    }
+                } else {
+                    ctx.strokeStyle = '#000000'; // All black
+                }
+                
+                ctx.lineWidth = 2;
+                
+                // Draw edge with proper boundary handling
+                drawPeriodicEdge(v1.x, v1.y, v2.x, v2.y);
+            });
+            
+            // Draw vertices as small dots
+            meshVertices.forEach(vertex => {
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(vertex.x, vertex.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Render the original Delaunay triangles
+        function renderDelaunayTriangles() {
+            ctx.strokeStyle = '#cccccc'; // Light gray
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]); // Dashed lines
+            
+            delaunayTriangles.forEach(triangle => {
+                // Only draw triangles where all vertices are within canvas bounds
+                const withinBounds = (point) => 
+                    point.x >= 0 && point.x <= config.width && 
+                    point.y >= 0 && point.y <= config.height;
+                
+                if (withinBounds(triangle.a) && withinBounds(triangle.b) && withinBounds(triangle.c)) {
+                    ctx.beginPath();
+                    ctx.moveTo(triangle.a.x, triangle.a.y);
+                    ctx.lineTo(triangle.b.x, triangle.b.y);
+                    ctx.lineTo(triangle.c.x, triangle.c.y);
+                    ctx.closePath();
+                    ctx.stroke();
+                    
+                    // Optionally draw the original seed points (triangle vertices)
+                    [triangle.a, triangle.b, triangle.c].forEach(vertex => {
+                        if (vertex.id !== undefined && vertex.id < 1000) { // Not ghost seeds
+                            ctx.fillStyle = '#ff6666'; // Light red
+                            ctx.beginPath();
+                            ctx.arc(vertex.x, vertex.y, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    });
+                }
+            });
+            
+            ctx.setLineDash([]); // Reset to solid lines
+        }
+
+        // Draw edge with proper boundary handling
+        function drawPeriodicEdge(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // If periodic boundaries are OFF, filter out unreasonably long edges
+            if (!config.periodicBoundaries) {
+                // Don't draw edges longer than half the canvas diagonal
+                const maxDistance = Math.sqrt(config.width * config.width + config.height * config.height) / 3;
+                if (distance > maxDistance) {
+                    return; // Skip drawing this edge
+                }
+                
+                // Draw normal straight line
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+                return;
+            }
+            
+            // For periodic boundaries, check if we should wrap
+            const shouldWrapX = Math.abs(dx) > config.width / 2;
+            const shouldWrapY = Math.abs(dy) > config.height / 2;
+            
+            if (!shouldWrapX && !shouldWrapY) {
+                // Normal edge
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            } else {
+                // Draw wrapped edge (shortest path)
+                let newX2 = x2;
+                let newY2 = y2;
+                
+                if (shouldWrapX) {
+                    newX2 = dx > 0 ? x2 - config.width : x2 + config.width;
+                }
+                if (shouldWrapY) {
+                    newY2 = dy > 0 ? y2 - config.height : y2 + config.height;
+                }
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(newX2, newY2);
+                ctx.stroke();
+            }
+        }
+
+        // Main animation loop
+        function animate() {
+            if (isEvolutionRunning) {
+                updatePhysics();
+                // Re-analyze angles as mesh deforms
+                analyzeAcuteAngles();
+            }
+            
+            render();
+            
+            if (isEvolutionRunning) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        // Generate complete mesh
+        function generateMesh() {
+            generateVoronoiMesh();
+            render();
+            updateDebug('Mesh ready for evolution!');
+        }
+
+        // Setup UI controls
+        function setupControls() {
+            // Canvas dimension controls
+            document.getElementById('canvasWidth').addEventListener('input', (e) => {
+                config.width = parseInt(e.target.value);
+                document.getElementById('widthLabel').textContent = config.width;
+                canvas.width = config.width;
+                render();
+            });
+            
+            document.getElementById('canvasHeight').addEventListener('input', (e) => {
+                config.height = parseInt(e.target.value);
+                document.getElementById('heightLabel').textContent = config.height;
+                canvas.height = config.height;
+                render();
+            });
+            
+            document.getElementById('seedCount').addEventListener('input', (e) => {
+                config.seedCount = parseInt(e.target.value);
+                document.getElementById('seedCountLabel').textContent = config.seedCount;
+            });
+            
+            document.getElementById('expandPercent').addEventListener('input', (e) => {
+                config.expandPercent = parseInt(e.target.value);
+                document.getElementById('expandLabel').textContent = config.expandPercent;
+            });
+            
+            document.getElementById('shrinkPercent').addEventListener('input', (e) => {
+                config.shrinkPercent = parseInt(e.target.value);
+                document.getElementById('shrinkLabel').textContent = config.shrinkPercent;
+            });
+            
+            document.getElementById('springStrength').addEventListener('input', (e) => {
+                config.springStrength = parseFloat(e.target.value);
+                document.getElementById('springLabel').textContent = config.springStrength;
+            });
+            
+            document.getElementById('vertexMass').addEventListener('input', (e) => {
+                config.vertexMass = parseFloat(e.target.value);
+                document.getElementById('massLabel').textContent = config.vertexMass;
+            });
+            
+            document.getElementById('expansionRate').addEventListener('input', (e) => {
+                config.expansionRate = parseFloat(e.target.value);
+                document.getElementById('rateLabel').textContent = config.expansionRate.toFixed(3);
+            });
+            
+            document.getElementById('backgroundBrightness').addEventListener('input', (e) => {
+                config.backgroundBrightness = parseInt(e.target.value);
+                document.getElementById('backgroundLabel').textContent = config.backgroundBrightness;
+                
+                // Update background color immediately for body, canvas, and canvas container
+                const greyValue = Math.round(config.backgroundBrightness * 2.55); // Convert 0-100 to 0-255
+                const greyColor = `rgb(${greyValue}, ${greyValue}, ${greyValue})`;
+                document.body.style.backgroundColor = greyColor;
+                canvas.style.backgroundColor = greyColor;
+                document.getElementById('canvasContainer').style.backgroundColor = greyColor;
+            });
+            
+            document.getElementById('showColors').addEventListener('change', (e) => {
+                config.showColors = e.target.checked;
+                render(); // Re-render with new color setting
+            });
+            
+            document.getElementById('invertBehavior').addEventListener('change', (e) => {
+                config.invertBehavior = e.target.checked;
+                // Re-analyze angles with new behavior
+                analyzeAcuteAngles();
+                render();
+            });
+            
+            document.getElementById('periodicBoundaries').addEventListener('change', (e) => {
+                config.periodicBoundaries = e.target.checked;
+                // Just re-render with new boundary behavior, don't regenerate mesh
+                render();
+                updateDebug('Switched to ' + (config.periodicBoundaries ? 'periodic' : 'bounded') + ' boundaries');
+            });
+            
+            document.getElementById('showDelaunayTriangles').addEventListener('change', (e) => {
+                config.showDelaunayTriangles = e.target.checked;
+                render(); // Re-render with new triangle visibility setting
+            });
+            
+            document.getElementById('useBlueNoise').addEventListener('change', (e) => {
+                config.useBlueNoise = e.target.checked;
+                // Re-generate mesh with new seed distribution
+                generateMesh();
+            });
+            
+            document.getElementById('regenerate').addEventListener('click', generateMesh);
+            
+            document.getElementById('toggleEvolution').addEventListener('click', () => {
+                isEvolutionRunning = !isEvolutionRunning;
+                document.getElementById('toggleEvolution').textContent = 
+                    isEvolutionRunning ? 'Stop Evolution' : 'Start Evolution';
+                document.getElementById('status').textContent = 
+                    isEvolutionRunning ? 'Running' : 'Stopped';
+                
+                if (isEvolutionRunning) {
+                    animate();
+                } else {
+                    cancelAnimationFrame(animationId);
+                }
+            });
+
+            // Initialize UI controls
+            document.getElementById('seedCount').value = config.seedCount;
+            document.getElementById('showColors').checked = config.showColors;
+            document.getElementById('invertBehavior').checked = config.invertBehavior;
+            document.getElementById('periodicBoundaries').checked = config.periodicBoundaries;
+            document.getElementById('showDelaunayTriangles').checked = config.showDelaunayTriangles;
+            document.getElementById('useBlueNoise').checked = config.useBlueNoise;
+            
+            // Set initial background color
+            const initialGreyValue = Math.round(config.backgroundBrightness * 2.55);
+            const initialGreyColor = `rgb(${initialGreyValue}, ${initialGreyValue}, ${initialGreyValue})`;
+            document.body.style.backgroundColor = initialGreyColor;
+            canvas.style.backgroundColor = initialGreyColor;
+            document.getElementById('canvasContainer').style.backgroundColor = initialGreyColor;
+        }
+
+        // Initialize everything
+        function init() {
+            updateDebug('Initializing barycentric dual mesh system...');
+            
+            initCanvas();
+            setupControls();
+            generateMesh();
+            
+            updateDebug('System ready! Barycentric dual mesh evolution system loaded.');
+        }
+
+        // Start when page loads
+        window.addEventListener('load', init);
+    </script>
 </body>
 </html> 
